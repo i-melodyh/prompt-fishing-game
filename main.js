@@ -1,196 +1,101 @@
 import * as THREE from 'three'; 
+import {inputs} from './inputs.js'; 
+import {player} from './player.js';
+import {ocean} from './ocean.js'; 
 
-//make scene, camera
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000 ); //fov, aspect ratio, near, far clipping
-// create a pivot object to hold the camera
-const cameraHolder = new THREE.Object3D();
-scene.add(cameraHolder);
-cameraHolder.add(camera);
+export class game {
+  constructor(container){
+    //mount point 
+    this.container = container;
 
-//renderer 
-const renderer = new THREE.WebGLRenderer(); 
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement); 
+    this.paused = false;
 
-//bg color
-scene.background = new THREE.Color(0,0,0);
-
-//texture loader
-const textureLoader = new THREE.TextureLoader();
-const waterTexture = textureLoader.load('textures/water.png');
-waterTexture.wrapS = THREE.RepeatWrapping;
-waterTexture.wrapT = THREE.RepeatWrapping;
-waterTexture.repeat.set(50, 50);
-waterTexture.magFilter = THREE.NearestFilter;
-
-//make a cube? 
-const cubeGeometry = new THREE.BoxGeometry( 3, 3, 3, 9, 9, 9);
-const cubeMaterial = new THREE.MeshStandardMaterial({color: 0xf190fe, flatShading: true }); 
-cubeMaterial.metalness = 0.75;
-cubeMaterial.roughness = 0;
-const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-scene.add(cube);
-
-
-//floor?
-const floorGeometry = new THREE.PlaneGeometry( 100, 100, 100, 100);
-const floorMaterial = new THREE.MeshPhongMaterial( { map: waterTexture, side: THREE.DoubleSide } );
-const floor = new THREE.Mesh(floorGeometry, floorMaterial );
-floor.rotation.x = Math.PI / 2;
-scene.add(floor);
-
-//lighting 
-const color = 0xFFFFFF;
-const intensity = 500;
-const light = new THREE.PointLight(color, intensity);
-light.position.set(0, 10, 0);
-scene.add(light);
-
-
-//default add position is 0,0,0
-camera.position.z = 5; 
-camera.position.y = 5; 
-cube.position.y = 1.5;
-
-//track which keys are being pressed 
-const keys = {}
-window.addEventListener('keydown', (e) => keys[e.code] = true);
-window.addEventListener('keyup',   (e) => keys[e.code] = false);
-
-//shadows
-renderer.shadowMap.enabled = true;
-floor.receiveShadow = true;
-
-//key updates
-const SPEED = 15; //change per second
-const GRAVITY = 40; 
-const JUMP = 15;
-const GROUND_Y = 0.5;
-let Y_VELOCITY = 0; 
-let onGround = true; 
-
-function key_update(delta){
-// get the direction the camera is facing
-  const direction = new THREE.Vector3();
-  cameraHolder.getWorldDirection(direction);
-  direction.y = 0; // keep movement horizontal
-  direction.normalize();
-
-  const right = new THREE.Vector3();
-  right.crossVectors(direction, new THREE.Vector3(0, 1, 0));
-
-  //wasd direction movement 
-  if (keys['KeyW']&&keys['ShiftLeft']) cameraHolder.position.addScaledVector(direction, -SPEED * delta);
-  if (keys['KeyW']) cameraHolder.position.addScaledVector(direction, -SPEED * delta);
-  if (keys['KeyS']) cameraHolder.position.addScaledVector(direction, SPEED * delta);
-  if (keys['KeyA']) cameraHolder.position.addScaledVector(right, SPEED * delta);
-  if (keys['KeyD']) cameraHolder.position.addScaledVector(right, -SPEED * delta);
-
-  if (keys['KeyF']) water_update();
-  //start jump
-  if (keys['Space']&&onGround){
-        Y_VELOCITY = JUMP;
-        onGround = false;
-    }
-
-   
-  }
-
-//jump logic
-function gravity_update(delta){
-    if(!onGround){
-        //update height of jump 
-        Y_VELOCITY -= GRAVITY*delta;
-        cameraHolder.position.y += Y_VELOCITY*delta;
-        //check for landing
-        if(cameraHolder.position.y <= GROUND_Y){
-            cameraHolder.position.y = GROUND_Y; 
-            Y_VELOCITY = 0; 
-            onGround = true;
-        }
-    }
-}
-
-
-// lock pointer when clicking the canvas
-renderer.domElement.addEventListener('click', () => {
-  renderer.domElement.requestPointerLock();
-});
-
-// listen for lock/unlock changes
-document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement === renderer.domElement) { //check if locked element is game canvas
-    console.log('pointer locked');
-    //run game
-  } else {
-    console.log('pointer unlocked');
-    //pause game
-  }
-});
-
-//camera panning attached to mouse 
-// track yaw (left/right) and pitch (up/down) separately
-let yaw = 0;
-let pitch = 0;
-const MOUSE_SENSITIVITY = 0.002;
-
-document.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement) return;
-
-  yaw   -= e.movementX * MOUSE_SENSITIVITY; // left/right
-  pitch -= e.movementY * MOUSE_SENSITIVITY; // up/down
-
-  // clamp pitch so camera can't flip upside down
-  pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
-
-  // apply yaw to the holder (world Y axis)
-  cameraHolder.rotation.y = yaw;
-
-  // apply pitch to the camera itself (local X axis)
-  camera.rotation.x = pitch;
-});
-
-
-//ocean waves 
-const WAVEFREQ = 0.15; //seconds per update
-let waveOffset = 0;
-let waveTick = WAVEFREQ;
-function water_update(delta){
-  waveTick -= delta;
-    if(waveTick <= 0){
-        waveTick = WAVEFREQ;
-        waveOffset += 0.5;
+    //scene
+    this.scene = new THREE.Scene();
     
-   // let noise = (Math.random()*9)+ 1;
-    //noise = Math.floor(noise);
-    const position = floor.geometry.attributes.position; 
+    //renderer 
+    this.renderer = new THREE.WebGLRenderer(); 
+    this.renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(this.renderer.domElement); 
 
-    for (let i = 0; i < position.count; i++) {
-      let waveHeight= Math.random();
-      position.setZ(i, waveHeight * Math.sin(position.getX(i)+ waveOffset));
-    }
+    //camera 
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000 ); //fov, aspect ratio, near, far clipping
 
-    position.needsUpdate = true;
-    floor.geometry.computeVertexNormals();
-    }
-}
+    //for animate function
+    this.lastTime = 0;
+  }
 
-//animate + render
-let lastTime = 0;
-function animate(time){
+  async init(){
+    await this.loadAssets();
+    this.makeScene();
+    
+  }
+
+  async loadAssets(){
+    //texture loading
+    const textureLoader = new THREE.TextureLoader();
+    this.textures = {
+      ocean: await textureLoader.loadAsync('textures/water.png')
+    };
+  }
+
+  makeScene(){
+      //bg color
+    this.scene.background = new THREE.Color('skyblue');
+
+    this.input = new inputs(this.renderer);
+    this.player = new player(this.scene, this.camera, this.input);
+    
+
+    //shadows
+    this.renderer.shadowMap.enabled = true;
+   
+    //lighting 
+    const color = 0xFFFFFF;
+    const intensity = 500;
+    const light = new THREE.PointLight(color, intensity);
+    light.position.set(0, 10, 0);
+    this.scene.add(light);
+
+    //make a cube? 
+    const cubeGeometry = new THREE.BoxGeometry( 3, 3, 3, 9, 9, 9);
+    const cubeMaterial = new THREE.MeshStandardMaterial({color: 0xf190fe, flatShading: true }); 
+    cubeMaterial.metalness = 0.75;
+    cubeMaterial.roughness = 0;
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    //default add position is 0,0,0
+    cube.position.y = 1.5;
+    this.scene.add(cube);
+
+    //make an ocean
+    this.ocean = new ocean(this.scene, this.textures.ocean);
+    this.ocean.init();
+
+    this.renderer.domElement.addEventListener('click', () => this.renderer.domElement.requestPointerLock());
+    document.addEventListener('pointerlockchange', () => {
+    this.paused = document.pointerLockElement !== this.renderer.domElement;
+});
+  }
+
+
+  //animate + render
+  animate(time){
+    if (this.paused) return;
     //get seconds since last update
-    const delta = (time - lastTime)/1000;
-    lastTime = time; 
-
-    //update keys
-    key_update(delta);
+    const delta = (time - this.lastTime)/1000;
+    this.lastTime = time; 
 
     //update physics
-    gravity_update(delta);
-    water_update(delta);
+    this.ocean.update(delta);
 
     //render
-    renderer.render(scene, camera);
+    this.player.update(delta);
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  //game start
+  async start(){
+    await this.init(); 
+    this.renderer.setAnimationLoop((time) => this.animate(time)); 
+  }
 }
- renderer.setAnimationLoop(animate); 

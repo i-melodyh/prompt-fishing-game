@@ -4,9 +4,21 @@
     <meta charset="utf-8">
     <style>
       body { margin: 0; }
+      #game-container {
+        width: 1000px;
+        height: 600px;
+        margin: 0 auto;
+        display: block;
+      }
+
     </style>
   </head>
   <body>
-   <script type="module" src="/main.js"></script>
+  <div id="game-container"></div>
+<script type="module">
+  import { game as Game} from './main.js'; 
+  const game = new Game(document.getElementById('game-container'));
+  game.start();
+</script>
   </body>
 </html>
