@@ -53,18 +53,40 @@ export class game {
     //lighting 
     const color = 0xFFFFFF;
     const intensity = 500;
-    const light = new THREE.PointLight(color, intensity);
-    light.position.set(0, 10, 0);
-    this.scene.add(light);
+
+    const spotlight = new THREE.PointLight(color, intensity);
+    spotlight.position.set(0, 10, 0);
+    this.scene.add(spotlight);
+
+    const spotlight2= new THREE.PointLight(color, intensity);
+    spotlight2.position.set(10, 0, 0);
+    this.scene.add(spotlight2);
+
+
+    const spotlight3= new THREE.PointLight(color, intensity);
+    spotlight3.position.set(-10, 0, 0);
+    this.scene.add(spotlight3);
+
+     const spotlight4= new THREE.PointLight(color, intensity);
+    spotlight4.position.set(0, 0, 10);
+    this.scene.add(spotlight4);
+
+     const spotlight5= new THREE.PointLight(color, intensity);
+    spotlight5.position.set(0, 0, -10);
+    this.scene.add(spotlight5);
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 5); // soft white light
+    this.scene.add(ambientLight);
 
     //make a cube? 
     const cubeGeometry = new THREE.BoxGeometry( 3, 3, 3, 9, 9, 9);
-    const cubeMaterial = new THREE.MeshStandardMaterial({color: 0xf190fe, flatShading: true }); 
+    const cubeMaterial = new THREE.MeshStandardMaterial({color: '#f8ff00', flatShading: true }); 
     cubeMaterial.metalness = 0.75;
     cubeMaterial.roughness = 0;
     const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
     //default add position is 0,0,0
-    cube.position.y = 1.5;
+    cube.position.y = 6;
+    this.cube = cube;
     this.scene.add(cube);
 
     //make an ocean
@@ -87,9 +109,11 @@ export class game {
 
     //update physics
     this.ocean.update(delta);
-
-    //render
     this.player.update(delta);
+
+    this.cube.rotation.z += 0.01;
+    this.cube.rotation.x += 0.01;
+
     this.renderer.render(this.scene, this.camera);
   }
 
